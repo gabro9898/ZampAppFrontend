@@ -1,4 +1,4 @@
-// src/screens/TimerGameScreen.js
+// src/screens/TimerGameScreen.js - Versione Ottimizzata
 import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
@@ -25,33 +25,27 @@ export function TimerGameScreen({ route, navigation }) {
   const startTimeRef = useRef(null); 
   const intervalRef = useRef(null);
   
-  // API calls con polling per aggiornare lo stato
+  // ✅ OTTIMIZZAZIONE: Query solo all'apertura della schermata
   const { 
     data: attemptStatus, 
     isLoading: isCheckingStatus,
     refetch: refetchStatus,
     error: statusError 
   } = useCheckAttemptStatusQuery(challengeId, {
-    // Ricontrolla ogni 5 secondi se l'utente non può giocare
-    pollingInterval: attemptStatus?.canPlay === false ? 5000 : 0,
-    // Ricontrolla sempre quando si entra nella schermata
-    refetchOnFocus: true,
-    refetchOnMountOrArgChange: true
+    // ✅ NO polling automatico
+    refetchOnMountOrArgChange: true,
+    refetchOnFocus: false,
+    refetchOnReconnect: false,
   });
   
   const [submitAttempt, { isLoading: isSubmitting }] = useSubmitTimerAttemptMutation();
 
-  // *** NUOVO: Hook per il refresh del profilo ***
+  // ✅ Hook per il refresh del profilo
   const { refetch: refetchProfile } = useGetProfileQuery(undefined, { 
     skip: false 
   });
 
-  // Debug log per capire cosa sta succedendo
-  useEffect(() => {
-    console.log('🎮 Attempt Status:', attemptStatus);
-    console.log('❓ Can Play:', attemptStatus?.canPlay);
-    console.log('❌ Status Error:', statusError);
-  }, [attemptStatus, statusError]);
+  // ✅ RIMOSSO: Debug log che causavano spam
 
   // Effetto per aggiornare il timer
   useEffect(() => {
@@ -94,9 +88,8 @@ export function TimerGameScreen({ route, navigation }) {
     setLastResult(null);
   };
 
-  // *** MODIFICATO: Gestione stop con aggiornamento profilo ***
+  // Gestione stop con aggiornamento profilo
   const handleStop = async () => {
-    console.log('⏹️ Stopping timer');
     setIsRunning(false);
     const finalTime = elapsedMillis;
     
@@ -104,8 +97,6 @@ export function TimerGameScreen({ route, navigation }) {
     const targetMillis = 10000;
     const diffMillis = Math.abs(targetMillis - finalTime);
     const accuracy = ((targetMillis - diffMillis) / targetMillis * 100).toFixed(2);
-    
-    console.log('📊 Timer result:', { finalTime, diffMillis, accuracy });
     
     // Mostra risultato temporaneo
     setLastResult({
@@ -116,17 +107,14 @@ export function TimerGameScreen({ route, navigation }) {
     
     // Invia il tentativo
     try {
-      console.log('📤 Submitting attempt...');
       const result = await submitAttempt({
         challengeId,
         attemptData: { elapsedMillis: finalTime }
       }).unwrap();
       
-      console.log('✅ Attempt submitted:', result);
       setHasPlayed(true);
       
-      // *** IMPORTANTE: Aggiorna il profilo per avere XP aggiornati ***
-      console.log('🔄 Updating user profile after game...');
+      // Aggiorna il profilo per avere XP aggiornati
       setTimeout(() => {
         refetchProfile();
       }, 500);
@@ -139,16 +127,14 @@ export function TimerGameScreen({ route, navigation }) {
           {
             text: 'OK',
             onPress: () => {
-              console.log('🔄 Refreshing status after submission');
               // Ricarica lo stato dopo aver giocato
               refetchStatus();
-              setHasPlayed(false); // Reset per permettere di vedere lo stato aggiornato
+              setHasPlayed(false);
             }
           }
         ]
       );
     } catch (error) {
-      console.log('❌ Submit error:', error);
       Alert.alert(
         'Errore',
         error.data?.error || 'Errore nell\'invio del tentativo',
@@ -157,7 +143,7 @@ export function TimerGameScreen({ route, navigation }) {
     }
   };
 
-  // Calcola se può giocare - usa tutti i possibili campi dal backend
+  // Calcola se può giocare
   const canPlay = attemptStatus?.canPlay || 
                   attemptStatus?.canAttempt || 
                   (attemptStatus?.status?.remainingAttempts > 0);

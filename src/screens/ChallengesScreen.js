@@ -1,5 +1,5 @@
 // src/screens/ChallengesScreen.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 import { useAuth } from '../hooks/useAuth';
 import { useGetUserChallengesQuery } from '../store/services/challengeApi';
 import { useGetLeaderboardQuery } from '../store/services/gameApi';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
 // Componente Modal per la classifica
 function LeaderboardModal({ visible, onClose, challengeId, challengeName }) {
@@ -202,6 +202,15 @@ export function ChallengesScreen() {
   } = useGetUserChallengesQuery(user?.id, {
     skip: !user?.id
   });
+
+  // IMPORTANTE: Refresh automatico quando la schermata riceve il focus
+  useFocusEffect(
+    useCallback(() => {
+      if (user?.id) {
+        refetch();
+      }
+    }, [user?.id, refetch])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);

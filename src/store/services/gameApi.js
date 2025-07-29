@@ -1,4 +1,4 @@
-// src/store/services/gameApi.js - VERSIONE CORRETTA SENZA POLLING ECCESSIVO
+// src/store/services/gameApi.js - VERSIONE CORRETTA SENZA ERRORI DI TAG
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
 export const gameApi = createApi({
@@ -14,46 +14,29 @@ export const gameApi = createApi({
       return headers;
     },
   }),
-  tagTypes: ['TimerAttempt', 'Leaderboard'],
+  tagTypes: ['TimerAttempt', 'Leaderboard'], // SOLO I TAG DI gameApi
   endpoints: (builder) => ({
-    // ✅ CORREZIONE: Verifica se può giocare SENZA polling automatico
+    // Verifica se può giocare SENZA polling automatico
     checkAttemptStatus: builder.query({
       query: (challengeId) => `/challenges/${challengeId}/timer/status`,
       providesTags: (result, error, challengeId) => [
         { type: 'TimerAttempt', id: challengeId }
       ],
-      // ❌ RIMOSSO: Qualsiasi polling automatico
-      // Le query vengono aggiornate solo quando necessario tramite invalidatesTags
     }),
     
-    // ✅ CORREZIONE: Invia tentativo con invalidazione corretta dei tag
+    // Invia tentativo - SENZA invalidare tag di altre API
     submitTimerAttempt: builder.mutation({
       query: ({ challengeId, attemptData }) => ({
         url: `/challenges/${challengeId}/timer/attempt`,
         method: 'POST',
         body: attemptData,
       }),
-      // ✅ IMPORTANTE: Invalida i tag per aggiornare le query correlate
+      // IMPORTANTE: Invalida SOLO i tag che appartengono a gameApi
       invalidatesTags: (result, error, { challengeId }) => [
         { type: 'TimerAttempt', id: challengeId },
         { type: 'Leaderboard', id: challengeId },
-        // ✅ AGGIUNTO: Invalida anche i tag delle challenge per aggiornare lo stato
-        'Challenge',
-        'UserChallenges'
+        // NON METTERE 'Challenge' o 'UserChallenges' qui!
       ],
-      // ✅ OTTIMIZZAZIONE: Aggiornamento ottimistico per una UX migliore
-      async onQueryStarted({ challengeId }, { dispatch, queryFulfilled }) {
-        try {
-          await queryFulfilled;
-          
-          // ✅ Dopo il submit, forza il refresh dello stato del gioco
-          dispatch(
-            gameApi.util.invalidateTags([{ type: 'TimerAttempt', id: challengeId }])
-          );
-        } catch (error) {
-          console.log('❌ Submit attempt failed:', error);
-        }
-      },
     }),
     
     // Leaderboard generale - SENZA polling continuo
@@ -64,7 +47,7 @@ export const gameApi = createApi({
       ],
     }),
     
-    // Leaderboard giornaliera - SENZA polling continuo  
+    // Leaderboard giornaliera - SENZA polling continuo
     getDailyLeaderboard: builder.query({
       query: ({ challengeId, date }) => ({
         url: `/challenges/${challengeId}/timer/daily-leaderboard`,
