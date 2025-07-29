@@ -1,4 +1,4 @@
-// src/screens/HomeScreen.js - Versione Corretta Senza Loop
+// src/screens/HomeScreen.js - Versione COMPLETA con gestione pacchetti e challenge paid
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { 
   View, 
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { useGetChallengesQuery, useJoinChallengeMutation } from '../store/services/challengeApi';
+import { usePurchaseChallengeMutation } from '../store/services/shopApi'; // ✨ NUOVO IMPORT
 import { useGetProfileQuery } from '../store/services/authApi';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
@@ -19,8 +20,13 @@ import { UserStatsHeader } from '../components/UserStatsHeader';
 import { ChallengeFilters } from '../components/ChallengeFilters';
 import { ChallengeCard } from '../components/ChallengeCard';
 
-// Funzioni helper
-import { filterChallenges, isUserParticipating } from '../utils/challengeHelpers';
+// Funzioni helper aggiornate
+import { 
+  filterChallenges, 
+  isUserParticipating,
+  canUserAccessChallenge,
+  getAccessMessage 
+} from '../utils/challengeHelpers';
 
 export function HomeScreen() {
   const { user } = useAuth();
@@ -38,17 +44,14 @@ export function HomeScreen() {
   } = useGetChallengesQuery();
   
   const [joinChallenge, { isLoading: isJoining }] = useJoinChallengeMutation();
+  const [purchaseChallenge] = usePurchaseChallengeMutation(); // ✨ NUOVO
 
-  // ✅ CORREZIONE: Skip il profilo se non necessario per evitare loop
   const { data: profileData } = useGetProfileQuery(undefined, { 
     skip: !user?.id,
-    // ❌ RIMOSSO: Qualsiasi polling automatico
   });
 
-  // ✅ CORREZIONE: Usa useFocusEffect con useRef per evitare chiamate multiple
   useFocusEffect(
     useCallback(() => {
-      // Solo se non è la prima volta e non stiamo già caricando
       if (hasInitialized.current && !isLoading && !refreshing) {
         console.log('🏠 HomeScreen focused - refreshing data...');
         refetch();
@@ -58,12 +61,10 @@ export function HomeScreen() {
       return () => {
         console.log('🏠 HomeScreen unfocused');
       };
-    }, []) // ✅ IMPORTANTE: Array vuoto per evitare loop
+    }, [])
   );
 
-  // ✅ CORREZIONE: Rimuovi useEffect che loggava continuamente
-  
-  // Calcola statistiche utente - usa profileData se disponibile
+  // Calcola statistiche utente
   const userStats = {
     level: profileData?.level || user?.level || 1,
     xp: profileData?.xp || user?.xp || 0,
@@ -73,8 +74,11 @@ export function HomeScreen() {
     prizesWon: profileData?.prizesWon || user?.prizesWon || 0
   };
 
-  // Filtra le challenge usando l'helper ottimizzato
-  const filteredChallenges = filterChallenges(challenges, activeFilter);
+  // Usa l'utente completo (con packageType) per il filtro
+  const currentUser = profileData || user;
+  
+  // Filtra le challenge usando l'helper aggiornato
+  const filteredChallenges = filterChallenges(challenges, activeFilter, currentUser);
 
   // Handlers
   const handleJoinChallenge = async (challengeId) => {
@@ -95,10 +99,88 @@ export function HomeScreen() {
   };
 
   const handleNavigateToGame = (challenge) => {
+    // Verifica che l'utente possa accedere
+    if (!canUserAccessChallenge(challenge, currentUser)) {
+      const message = getAccessMessage(challenge, currentUser);
+      Alert.alert('Accesso negato', message);
+      return;
+    }
+    
     navigation.navigate('TimerGame', {
       challengeId: challenge.id,
       challengeName: challenge.name
     });
+  };
+
+  // ✨ FUNZIONE AGGIORNATA per gestire acquisto + iscrizione automatica
+  const handleChallengePress = async (challenge) => {
+    // Se la challenge è a pagamento e non è stata acquistata
+    if (challenge.gameMode === 'paid' && !challenge.purchasedBy?.some(p => p.userId === currentUser?.id)) {
+      Alert.alert(
+        'Challenge a pagamento',
+        `Questa challenge costa ${challenge.userPrice || challenge.price}€. Vuoi acquistarla?`,
+        [
+          { text: 'Annulla', style: 'cancel' },
+          { 
+            text: 'Acquista e Iscriviti', 
+            onPress: async () => {
+              try {
+                // Step 1: Acquista la challenge
+                await purchaseChallenge({
+                  userId: currentUser.id,
+                  challengeId: challenge.id
+                }).unwrap();
+                
+                console.log('✅ Challenge acquistata, ora iscrivo...');
+                
+                // Step 2: Iscriviti automaticamente
+                try {
+                  await joinChallenge(challenge.id).unwrap();
+                  
+                  Alert.alert(
+                    'Successo!', 
+                    'Challenge acquistata e iscrizione completata! Ora puoi giocare.',
+                    [{ text: 'OK' }]
+                  );
+                  
+                  // Ricarica le challenge per aggiornare lo stato
+                  refetch();
+                } catch (joinError) {
+                  // Se l'iscrizione fallisce, almeno l'acquisto è andato
+                  Alert.alert(
+                    'Acquisto completato',
+                    'Challenge acquistata! Ora puoi iscriverti.',
+                    [{ text: 'OK' }]
+                  );
+                  refetch();
+                }
+                
+              } catch (error) {
+                Alert.alert(
+                  'Errore',
+                  error.data?.error || 'Errore durante l\'acquisto'
+                );
+              }
+            }
+          }
+        ]
+      );
+      return;
+    }
+    
+    // Se non è paid o è già stata acquistata, gestisci normalmente
+    if (isUserParticipating(challenge, currentUser?.id)) {
+      handleNavigateToGame(challenge);
+    } else {
+      // Verifica che possa accedere prima di iscriversi
+      if (!canUserAccessChallenge(challenge, currentUser)) {
+        const message = getAccessMessage(challenge, currentUser);
+        Alert.alert('Accesso negato', message);
+        return;
+      }
+      
+      handleJoinChallenge(challenge.id);
+    }
   };
 
   const onRefresh = async () => {
@@ -187,7 +269,61 @@ export function HomeScreen() {
         }
       >
         {/* Header con statistiche utente */}
-        <UserStatsHeader user={profileData || user} userStats={userStats} />
+        <UserStatsHeader user={currentUser} userStats={userStats} />
+
+        {/* Badge pacchetto attivo */}
+        {currentUser?.packageType && (
+          <View style={{ 
+            padding: 16, 
+            paddingTop: 0 
+          }}>
+            <View style={{
+              backgroundColor: 'white',
+              borderRadius: 12,
+              padding: 12,
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 4,
+              elevation: 4
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={{ fontSize: 20, marginRight: 8 }}>
+                  {currentUser.packageType === 'vip' ? '👑' : 
+                   currentUser.packageType === 'premium' ? '💎' :
+                   currentUser.packageType === 'pro' ? '⭐' : '🎁'}
+                </Text>
+                <Text style={{
+                  fontSize: 16,
+                  fontWeight: '600',
+                  color: '#030213'
+                }}>
+                  Pacchetto {currentUser.packageType.toUpperCase()}
+                </Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => navigation.navigate('profile')}
+                style={{
+                  backgroundColor: '#f3f4f6',
+                  borderRadius: 8,
+                  paddingHorizontal: 12,
+                  paddingVertical: 6
+                }}
+              >
+                <Text style={{
+                  fontSize: 12,
+                  fontWeight: '500',
+                  color: '#030213'
+                }}>
+                  Upgrade
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Contenuto principale */}
         <View style={{ padding: 16 }}>
@@ -195,6 +331,7 @@ export function HomeScreen() {
           <ChallengeFilters 
             activeFilter={activeFilter} 
             onFilterChange={setActiveFilter}
+            userPackage={currentUser?.packageType}
           />
 
           {/* Lista Challenge */}
@@ -220,21 +357,46 @@ export function HomeScreen() {
                 color: '#6b7280',
                 textAlign: 'center'
               }}>
-                Non ci sono challenge {activeFilter !== 'all' ? 'per questo filtro' : 'attive al momento'}
+                {activeFilter !== 'all' ? 
+                  'Non ci sono challenge disponibili per questo filtro con il tuo pacchetto' : 
+                  'Non ci sono challenge attive al momento'}
               </Text>
+              {currentUser?.packageType === 'free' && (
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('shop')}
+                  style={{
+                    marginTop: 16,
+                    backgroundColor: '#030213',
+                    borderRadius: 8,
+                    paddingHorizontal: 20,
+                    paddingVertical: 10
+                  }}
+                >
+                  <Text style={{
+                    color: 'white',
+                    fontWeight: '600'
+                  }}>
+                    Esplora lo Shop
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             filteredChallenges.map((challenge) => {
-              const participating = isUserParticipating(challenge, user?.id);
+              const participating = isUserParticipating(challenge, currentUser?.id);
+              const canAccess = canUserAccessChallenge(challenge, currentUser);
               
               return (
                 <ChallengeCard
                   key={challenge.id}
                   challenge={challenge}
                   isParticipating={participating}
+                  canAccess={canAccess}
                   onNavigateToGame={handleNavigateToGame}
                   onJoinChallenge={handleJoinChallenge}
+                  onPress={() => handleChallengePress(challenge)}
                   isJoining={isJoining}
+                  user={currentUser}
                 />
               );
             })

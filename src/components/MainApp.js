@@ -1,4 +1,4 @@
-// src/components/MainApp.js
+// src/components/MainApp.js - Versione Completa con Shop
 import React, { useEffect, useRef } from 'react';
 import { View, AppState } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -27,9 +27,6 @@ function MainNavigator() {
   // ✅ CORREZIONE: Rimuovi il polling continuo, usa solo refetch manuale
   const { refetch: refetchProfile } = useGetProfileQuery(undefined, {
     skip: !isAuthenticated || !user?.id,
-    // ❌ RIMOSSO: pollingInterval: 60000
-    // ❌ RIMOSSO: refetchOnFocus: true
-    // ❌ RIMOSSO: refetchOnReconnect: true
   });
   
   // ✅ CORREZIONE: Refetch solo quando l'app torna attiva dopo essere stata in background
@@ -49,8 +46,6 @@ function MainNavigator() {
       subscription?.remove();
     };
   }, [isAuthenticated, refetchProfile]);
-  
-  // ❌ RIMOSSO: useEffect per activeTab che causava loop
   
   // Componente che renderizza la schermata corretta basata sul tab attivo
   const TabContent = () => {
@@ -92,6 +87,14 @@ function MainNavigator() {
         options={{
           animation: 'slide_from_bottom',
           presentation: 'modal'
+        }}
+      />
+      
+      <Stack.Screen 
+        name="shop" 
+        component={ShopScreen}
+        options={{
+          animation: 'slide_from_right'
         }}
       />
     </Stack.Navigator>

@@ -1,4 +1,4 @@
-// src/store/index.js - Versione Corretta con Warning Risolti
+// src/store/index.js - Versione Completa con Shop API
 import { configureStore } from '@reduxjs/toolkit';
 import {
   persistStore,
@@ -17,6 +17,7 @@ import { combineReducers } from '@reduxjs/toolkit';
 import { authApi } from './services/authApi';
 import { challengeApi } from './services/challengeApi';
 import { gameApi } from './services/gameApi';
+import { shopApi } from './services/shopApi'; // ✨ NUOVO
 
 // Slices
 import authSlice from './slices/authSlice';
@@ -27,10 +28,10 @@ import uiSlice from './slices/uiSlice';
 // --------------------------------------------------
 const persistConfig = {
   key: 'root',
-  version: 4, // ✅ BUMP version per pulire eventuali stati corrotti
+  version: 5, // ✅ BUMP version per includere shopApi
   storage: AsyncStorage,
   whitelist: ['auth'], // salviamo solo auth
-  blacklist: ['ui', authApi.reducerPath, challengeApi.reducerPath, gameApi.reducerPath], // ✅ Blacklist le API per evitare problemi
+  blacklist: ['ui', authApi.reducerPath, challengeApi.reducerPath, gameApi.reducerPath, shopApi.reducerPath], // ✅ Blacklist le API per evitare problemi
 };
 
 // --------------------------------------------------
@@ -42,6 +43,7 @@ const rootReducer = combineReducers({
   [authApi.reducerPath]: authApi.reducer,
   [challengeApi.reducerPath]: challengeApi.reducer,
   [gameApi.reducerPath]: gameApi.reducer,
+  [shopApi.reducerPath]: shopApi.reducer, // ✨ NUOVO
 });
 
 // Persisted reducer
@@ -81,6 +83,12 @@ export const store = configureStore({
           'gameApi/executeMutation/fulfilled',
           'gameApi/executeMutation/pending',
           'gameApi/executeMutation/rejected',
+          'shopApi/executeQuery/fulfilled',
+          'shopApi/executeQuery/pending',
+          'shopApi/executeQuery/rejected',
+          'shopApi/executeMutation/fulfilled',
+          'shopApi/executeMutation/pending',
+          'shopApi/executeMutation/rejected',
         ],
         // ✅ Ignora i percorsi specifici che contengono oggetti non serializzabili
         ignoredActionPaths: [
@@ -111,9 +119,14 @@ export const store = configureStore({
           `${gameApi.reducerPath}.provided`,
           `${gameApi.reducerPath}.subscriptions`,
           `${gameApi.reducerPath}.config`,
+          `${shopApi.reducerPath}.queries`,
+          `${shopApi.reducerPath}.mutations`,
+          `${shopApi.reducerPath}.provided`,
+          `${shopApi.reducerPath}.subscriptions`,
+          `${shopApi.reducerPath}.config`,
         ],
       },
-    }).concat(authApi.middleware, challengeApi.middleware, gameApi.middleware),
+    }).concat(authApi.middleware, challengeApi.middleware, gameApi.middleware, shopApi.middleware),
   // ✅ Disabilita devTools in produzione per performance
   devTools: process.env.NODE_ENV !== 'production',
 });
