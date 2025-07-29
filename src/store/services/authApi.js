@@ -1,13 +1,13 @@
+// src/store/services/authApi.js
 import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
-//sconst API_BASE_URL = 'http://localhost:8000/api'; // Cambia con il tuo IP per dispositivi fisici
-const API_BASE_URL = 'http://192.168.1.8:8000/api';
+const API_BASE_URL = 'http://192.168.1.22:8000/api';
+
 export const authApi = createApi({
   reducerPath: 'authApi',
   baseQuery: fetchBaseQuery({
     baseUrl: API_BASE_URL,
     prepareHeaders: (headers, { getState }) => {
-      // Aggiungi automaticamente il token di auth
       const token = getState().auth.token;
       if (token) {
         headers.set('authorization', `Bearer ${token}`);
@@ -25,6 +25,7 @@ export const authApi = createApi({
         method: 'POST',
         body: { email, password },
       }),
+      // ✅ RIMOSSO: onQueryStarted che causava refetch automatici
       invalidatesTags: ['User'],
     }),
     
@@ -35,13 +36,15 @@ export const authApi = createApi({
         method: 'POST',
         body: userData,
       }),
+      // ✅ RIMOSSO: onQueryStarted che causava refetch automatici
       invalidatesTags: ['User'],
     }),
     
-    // Verifica token (opzionale)
-    verifyToken: builder.query({
-      query: () => '/auth/verify',
+    // Get current user profile
+    getProfile: builder.query({
+      query: () => '/auth/profile',
       providesTags: ['User'],
+      // ✅ RIMOSSO: transformResponse con console.log
     }),
   }),
 });
@@ -49,5 +52,6 @@ export const authApi = createApi({
 export const {
   useLoginMutation,
   useRegisterMutation,
-  useVerifyTokenQuery,
+  useGetProfileQuery,
+  useLazyGetProfileQuery,
 } = authApi;

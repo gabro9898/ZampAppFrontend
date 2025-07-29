@@ -1,5 +1,5 @@
 // App.js
-import React from 'react';
+import React, { useEffect } from 'react'; // <-- AGGIUNTO useEffect
 import { Provider } from 'react-redux';
 import { PersistGate } from 'redux-persist/integration/react';
 import { ActivityIndicator, View } from 'react-native';
@@ -7,6 +7,8 @@ import { store, persistor } from './src/store/store';
 import { MainApp } from './src/components/MainApp';
 
 export default function App() {
+ 
+
   return (
     <Provider store={store}>
       <PersistGate 
