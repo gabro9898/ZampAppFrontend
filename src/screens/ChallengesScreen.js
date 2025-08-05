@@ -12,17 +12,128 @@ import {
 } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { useGetUserChallengesQuery } from '../store/services/challengeApi';
-import { useGetLeaderboardQuery } from '../store/services/gameApi';
+import { useGetLeaderboardQuery, useCheckAttemptStatusQuery } from '../store/services/gameApi';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { CountdownTimer } from '../components/CountdownTimer';
+
+// Componente per il bottone di gioco con controllo tentativi
+function GameButtonWithStatus({ challenge, navigation }) {
+  const { user } = useAuth();
+  
+  // Query per verificare lo stato dei tentativi
+  const { 
+    data: attemptStatus,
+    isLoading: isCheckingStatus 
+  } = useCheckAttemptStatusQuery(challenge.id, {
+    skip: !user?.id,
+    refetchOnFocus: true,
+    refetchOnReconnect: true
+  });
+  
+  // Calcola se può giocare
+  const canPlay = attemptStatus?.canPlay ?? true;
+  const nextResetDate = attemptStatus?.status?.nextResetDate;
+  
+  if (isCheckingStatus) {
+    return (
+      <View style={{
+        backgroundColor: '#f3f4f6',
+        borderRadius: 12,
+        paddingVertical: 12,
+        alignItems: 'center',
+        marginTop: 12
+      }}>
+        <ActivityIndicator color="#6b7280" />
+      </View>
+    );
+  }
+  
+  if (!canPlay) {
+    // Mostra il bottone grigio con countdown
+    return (
+      <View style={{
+        backgroundColor: '#6b7280',
+        borderRadius: 12,
+        paddingVertical: 12,
+        alignItems: 'center',
+        marginTop: 12
+      }}>
+        <Text style={{
+          color: 'white',
+          fontSize: 14,
+          fontWeight: '600',
+          marginBottom: 4
+        }}>
+          Tentativi esauriti
+        </Text>
+        {nextResetDate && (
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center'
+          }}>
+            <Text style={{
+              color: 'white',
+              fontSize: 12,
+              marginRight: 4
+            }}>
+              Prossimo tentativo in:
+            </Text>
+            <CountdownTimer 
+              targetDate={nextResetDate}
+              textStyle={{
+                color: 'white',
+                fontSize: 12,
+                fontWeight: '600'
+              }}
+            />
+          </View>
+        )}
+      </View>
+    );
+  }
+  
+  // Può giocare - mostra il bottone normale
+  return (
+    <TouchableOpacity
+      style={{
+        backgroundColor: '#059669',
+        borderRadius: 12,
+        paddingVertical: 12,
+        alignItems: 'center',
+        marginTop: 12
+      }}
+      onPress={() => {
+        navigation.navigate('TimerGame', {
+          challengeId: challenge.id,
+          challengeName: challenge.name
+        });
+      }}
+    >
+      <Text style={{
+        color: 'white',
+        fontSize: 14,
+        fontWeight: '600'
+      }}>
+        GIOCA ORA 🎮
+      </Text>
+    </TouchableOpacity>
+  );
+}
 
 // Componente Modal per la classifica
 function LeaderboardModal({ visible, onClose, challengeId, challengeName }) {
-  const { data: leaderboard, isLoading } = useGetLeaderboardQuery(
+  const { data: leaderboard, isLoading, refetch } = useGetLeaderboardQuery(
     challengeId,
     { skip: !visible || !challengeId }
   );
   
   const { user } = useAuth();
+  
+  useEffect(() => {
+    if (visible && challengeId) {
+      refetch();
+    }
+  }, [visible, challengeId]);
   
   return (
     <Modal
@@ -518,7 +629,7 @@ export function ChallengesScreen() {
                     </View>
                   </View>
                   
-                  {/* Statistiche */}
+                  {/* Statistiche con posizione in classifica */}
                   <View style={{
                     flexDirection: 'row',
                     justifyContent: 'space-between',
@@ -526,7 +637,7 @@ export function ChallengesScreen() {
                     borderTopWidth: 1,
                     borderTopColor: '#f3f4f6'
                   }}>
-                    <View style={{ alignItems: 'center' }}>
+                    <View style={{ alignItems: 'center', flex: 1 }}>
                       <Text style={{
                         fontSize: 20,
                         fontWeight: 'bold',
@@ -541,13 +652,19 @@ export function ChallengesScreen() {
                         Miglior Tempo
                       </Text>
                     </View>
-                    <View style={{ alignItems: 'center' }}>
+                    <View style={{ 
+                      alignItems: 'center', 
+                      flex: 1,
+                      borderLeftWidth: 1,
+                      borderRightWidth: 1,
+                      borderColor: '#f3f4f6'
+                    }}>
                       <Text style={{
                         fontSize: 20,
                         fontWeight: 'bold',
-                        color: '#030213'
+                        color: challenge.rank ? '#059669' : '#030213'
                       }}>
-                        #{challenge.rank || '-'}
+                        {challenge.rank ? `#${challenge.rank}` : '-'}
                       </Text>
                       <Text style={{
                         fontSize: 12,
@@ -556,7 +673,7 @@ export function ChallengesScreen() {
                         Posizione
                       </Text>
                     </View>
-                    <View style={{ alignItems: 'center' }}>
+                    <View style={{ alignItems: 'center', flex: 1 }}>
                       <Text style={{
                         fontSize: 20,
                         fontWeight: 'bold',
@@ -573,32 +690,12 @@ export function ChallengesScreen() {
                     </View>
                   </View>
                   
-                  {/* Bottone Gioca per challenge attive */}
+                  {/* Bottone Gioca con controllo tentativi per challenge attive */}
                   {activeTab === 'active' && (
-                    <TouchableOpacity
-                      style={{
-                        backgroundColor: '#059669',
-                        borderRadius: 12,
-                        paddingVertical: 12,
-                        alignItems: 'center',
-                        marginTop: 12
-                      }}
-                      onPress={(e) => {
-                        e.stopPropagation();
-                        navigation.navigate('TimerGame', {
-                          challengeId: challenge.id,
-                          challengeName: challenge.name
-                        });
-                      }}
-                    >
-                      <Text style={{
-                        color: 'white',
-                        fontSize: 14,
-                        fontWeight: '600'
-                      }}>
-                        GIOCA ORA 🎮
-                      </Text>
-                    </TouchableOpacity>
+                    <GameButtonWithStatus 
+                      challenge={challenge} 
+                      navigation={navigation} 
+                    />
                   )}
                 </TouchableOpacity>
               );

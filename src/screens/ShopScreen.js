@@ -1,4 +1,4 @@
-// src/screens/ShopScreen.js - Versione COMPLETA con iscrizione automatica dopo acquisto
+// src/screens/ShopScreen.js - Versione Corretta con Redux
 import React, { useState, useEffect } from 'react';
 import { 
   View, 
@@ -8,11 +8,15 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  RefreshControl
+  RefreshControl,
+  Platform
 } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { useGetShopChallengesQuery, usePurchaseChallengeMutation } from '../store/services/shopApi';
-import { useJoinChallengeMutation } from '../store/services/challengeApi'; // ✨ NUOVO
+import { useJoinChallengeMutation } from '../store/services/challengeApi';
+import { useValidateReceiptMutation } from '../store/services/subscriptionApi';
+import { useDispatch } from 'react-redux';
+import { setActiveTab } from '../store/slices/uiSlice';
 import { useNavigation } from '@react-navigation/native';
 import { 
   formatPrice, 
@@ -23,25 +27,26 @@ import {
 
 export function ShopScreen() {
   const { user } = useAuth();
+  const dispatch = useDispatch();
   const navigation = useNavigation();
   const [refreshing, setRefreshing] = useState(false);
   const [purchasingId, setPurchasingId] = useState(null);
   
   const { 
     data: shopChallenges = [], 
-    isLoading, 
+    isLoading,
     refetch 
   } = useGetShopChallengesQuery(user?.id, {
     skip: !user?.id
   });
   
   const [purchaseChallenge] = usePurchaseChallengeMutation();
-  const [joinChallenge] = useJoinChallengeMutation(); // ✨ NUOVO
+  const [joinChallenge] = useJoinChallengeMutation();
   
   const handlePurchase = async (challenge) => {
     Alert.alert(
       'Conferma acquisto',
-      `Vuoi acquistare "${challenge.name}" per ${formatPrice(challenge.userPrice)}?`,
+      `Vuoi acquistare "${challenge.name}" per ${formatPrice(challenge.userPrice || challenge.price)}?`,
       [
         {
           text: 'Annulla',
@@ -52,26 +57,26 @@ export function ShopScreen() {
           onPress: async () => {
             setPurchasingId(challenge.id);
             try {
-              // Step 1: Acquista la challenge
+              // Mock payment per development
               await purchaseChallenge({
                 userId: user.id,
-                challengeId: challenge.id
+                challengeId: challenge.id,
+                paymentData: {
+                  method: 'mock',
+                  transactionId: `mock_${Date.now()}`
+                }
               }).unwrap();
               
-              console.log('✅ Challenge acquistata, ora iscrivo l\'utente...');
-              
-              // Step 2: Iscriviti automaticamente alla challenge
+              // Iscriviti automaticamente
               try {
                 await joinChallenge(challenge.id).unwrap();
-                console.log('✅ Iscrizione completata!');
-                
                 Alert.alert(
-                  'Acquisto completato!',
-                  'Sei stato iscritto automaticamente alla challenge',
+                  'Successo!',
+                  'Challenge acquistata e iscrizione completata!',
                   [
                     {
                       text: 'Vai alle mie challenge',
-                      onPress: () => navigation.navigate('challenges')
+                      onPress: () => dispatch(setActiveTab('challenges'))
                     },
                     {
                       text: 'OK',
@@ -80,22 +85,14 @@ export function ShopScreen() {
                   ]
                 );
               } catch (joinError) {
-                // Se l'iscrizione fallisce, comunque l'acquisto è andato a buon fine
-                console.log('⚠️ Errore iscrizione:', joinError);
                 Alert.alert(
                   'Acquisto completato',
                   'Challenge acquistata! Vai nelle tue challenge per iscriverti.',
-                  [
-                    {
-                      text: 'OK'
-                    }
-                  ]
+                  [{ text: 'OK' }]
                 );
               }
               
-              // Ricarica la lista
               refetch();
-              
             } catch (error) {
               Alert.alert(
                 'Errore',
@@ -114,6 +111,29 @@ export function ShopScreen() {
     setRefreshing(true);
     await refetch();
     setRefreshing(false);
+  };
+  
+  const handleShowPackages = () => {
+    // Mostra direttamente le opzioni dei pacchetti
+    Alert.alert(
+      '🎁 Scegli il tuo pacchetto',
+      'Sblocca più challenge e funzionalità premium!',
+      [
+        { 
+          text: '⭐ Pro (€9.99/mese)', 
+          onPress: () => navigation.navigate('Payment', { packageType: 'pro' }) 
+        },
+        { 
+          text: '💎 Premium (€19.99/mese)', 
+          onPress: () => navigation.navigate('Payment', { packageType: 'premium' }) 
+        },
+        { 
+          text: '👑 VIP (€29.99/mese)', 
+          onPress: () => navigation.navigate('Payment', { packageType: 'vip' }) 
+        },
+        { text: 'Annulla', style: 'cancel' }
+      ]
+    );
   };
   
   const PackageUpgradeCard = () => (
@@ -139,7 +159,7 @@ export function ShopScreen() {
             color: 'white',
             marginBottom: 4
           }}>
-            Pacchetto {user?.packageType?.toUpperCase()}
+            Pacchetto {user?.packageType?.toUpperCase() || 'FREE'}
           </Text>
           <Text style={{
             fontSize: 14,
@@ -158,7 +178,7 @@ export function ShopScreen() {
           paddingVertical: 12,
           alignItems: 'center'
         }}
-        onPress={() => navigation.navigate('profile')}
+        onPress={handleShowPackages}
       >
         <Text style={{
           color: '#030213',
@@ -231,7 +251,7 @@ export function ShopScreen() {
               color: '#6b7280',
               marginTop: 4
             }}>
-              Prezzi personalizzati per il tuo pacchetto {user?.packageType}
+              Prezzi personalizzati per il tuo pacchetto {user?.packageType || 'free'}
             </Text>
           </View>
           
@@ -312,7 +332,8 @@ export function ShopScreen() {
                       <Text style={{
                         fontSize: 14,
                         color: '#6b7280',
-                        marginBottom: 8
+                        marginBottom: 8,
+                        numberOfLines: 2
                       }}>
                         {challenge.description || 'Challenge esclusiva'}
                       </Text>
@@ -389,7 +410,7 @@ export function ShopScreen() {
                         fontWeight: 'bold',
                         color: 'white'
                       }}>
-                        {formatPrice(challenge.userPrice)}
+                        {formatPrice(challenge.userPrice || challenge.price || 0)}
                       </Text>
                     </View>
                     {purchasingId === challenge.id ? (

@@ -1,4 +1,4 @@
-// src/components/CountdownTimer.js - Versione Corretta
+// src/components/CountdownTimer.js - Versione Migliorata
 import React, { useState, useEffect, useRef } from 'react';
 import { Text } from 'react-native';
 
@@ -15,26 +15,54 @@ export function CountdownTimer({ targetDate, textStyle }) {
       
       const now = new Date();
       
-      // Validazione input
+      // Validazione input migliorata
       if (!targetDate) {
+        console.log('⏰ CountdownTimer: nessuna targetDate fornita');
         setTimeLeft('--:--:--');
         return false;
       }
       
       let target;
       try {
-        if (targetDate instanceof Date) {
+        // Se è già una Date valida
+        if (targetDate instanceof Date && !isNaN(targetDate.getTime())) {
           target = targetDate;
-        } else {
+        } 
+        // Se è una stringa ISO o altro formato
+        else if (typeof targetDate === 'string') {
+          target = new Date(targetDate);
+          
+          // Se la conversione fallisce, prova a parsare diversamente
+          if (isNaN(target.getTime())) {
+            // Prova con formato ISO con timezone
+            const isoDate = targetDate.replace(' ', 'T');
+            target = new Date(isoDate);
+            
+            if (isNaN(target.getTime())) {
+              console.log('⏰ CountdownTimer: data non valida:', targetDate);
+              setTimeLeft('--:--:--');
+              return false;
+            }
+          }
+        }
+        // Se è un timestamp
+        else if (typeof targetDate === 'number') {
           target = new Date(targetDate);
         }
+        else {
+          console.log('⏰ CountdownTimer: formato non supportato:', typeof targetDate, targetDate);
+          setTimeLeft('--:--:--');
+          return false;
+        }
         
-        // Verifica validità data
+        // Verifica finale validità data
         if (isNaN(target.getTime())) {
+          console.log('⏰ CountdownTimer: data finale non valida');
           setTimeLeft('--:--:--');
           return false;
         }
       } catch (error) {
+        console.error('⏰ CountdownTimer: errore parsing data:', error);
         setTimeLeft('--:--:--');
         return false;
       }

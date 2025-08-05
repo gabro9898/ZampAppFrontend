@@ -1,7 +1,11 @@
-// src/hooks/useAuth.js
+// src/hooks/useAuth.js - Aggiornato con reset API al logout
 import { useSelector, useDispatch } from 'react-redux';
 import { logout, clearError } from '../store/slices/authSlice';
 import { useLoginMutation, useRegisterMutation } from '../store/services/authApi';
+import { authApi } from '../store/services/authApi';
+import { challengeApi } from '../store/services/challengeApi';
+import { gameApi } from '../store/services/gameApi';
+import { shopApi } from '../store/services/shopApi';
 
 export const useAuth = () => {
   const dispatch = useDispatch();
@@ -10,8 +14,6 @@ export const useAuth = () => {
   
   const [loginMutation] = useLoginMutation();
   const [registerMutation] = useRegisterMutation();
-
-  // ✅ RIMOSSI: Tutti i console.log che venivano eseguiti ad ogni render
 
   const login = async (email, password) => {
     try {
@@ -38,7 +40,14 @@ export const useAuth = () => {
   };
 
   const handleLogout = () => {
+    // Pulisci lo stato di Redux
     dispatch(logout());
+    
+    // Pulisci la cache di tutte le API
+    dispatch(authApi.util.resetApiState());
+    dispatch(challengeApi.util.resetApiState());
+    dispatch(gameApi.util.resetApiState());
+    dispatch(shopApi.util.resetApiState());
   };
 
   const clearAuthError = () => {

@@ -12,7 +12,6 @@ export function MobileNavigation() {
     { id: 'home', icon: '🏠', label: 'Home' },
     { id: 'challenges', icon: '🏆', label: 'Challenge' },
     { id: 'shop', icon: '🛍️', label: 'Shop' },
-    { id: 'notifications', icon: '🔔', label: 'Notifiche' },
     { id: 'profile', icon: '👤', label: 'Profilo' },
   ];
 

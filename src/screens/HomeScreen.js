@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { useAuth } from '../hooks/useAuth';
 import { useGetChallengesQuery, useJoinChallengeMutation } from '../store/services/challengeApi';
-import { usePurchaseChallengeMutation } from '../store/services/shopApi'; // ✨ NUOVO IMPORT
+import { usePurchaseChallengeMutation } from '../store/services/shopApi';
 import { useGetProfileQuery } from '../store/services/authApi';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 
@@ -44,7 +44,7 @@ export function HomeScreen() {
   } = useGetChallengesQuery();
   
   const [joinChallenge, { isLoading: isJoining }] = useJoinChallengeMutation();
-  const [purchaseChallenge] = usePurchaseChallengeMutation(); // ✨ NUOVO
+  const [purchaseChallenge] = usePurchaseChallengeMutation();
 
   const { data: profileData } = useGetProfileQuery(undefined, { 
     skip: !user?.id,
@@ -395,6 +395,7 @@ export function HomeScreen() {
                   onNavigateToGame={handleNavigateToGame}
                   onJoinChallenge={handleJoinChallenge}
                   onPress={() => handleChallengePress(challenge)}
+                  onPurchase={handleChallengePress}
                   isJoining={isJoining}
                   user={currentUser}
                 />

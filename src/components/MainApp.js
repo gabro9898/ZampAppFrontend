@@ -1,4 +1,4 @@
-// src/components/MainApp.js - Versione Completa con Shop
+// src/components/MainApp.js - Versione Completa con tutte le schermate
 import React, { useEffect, useRef } from 'react';
 import { View, AppState } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
@@ -15,6 +15,10 @@ import { TimerGameScreen } from '../screens/TimerGameScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { ShopScreen } from '../screens/ShopScreen';
 import { NotificationsScreen } from '../screens/NotificationsScreen';
+import { PaymentScreen } from '../screens/PaymentScreen';
+import { TermsScreen } from '../screens/TermsScreen';
+import { PrivacyScreen } from '../screens/PrivacyScreen';
+import { PurchaseHistoryScreen } from '../screens/PurchaseHistoryScreen';
 import { MobileNavigation } from './MobileNavigation';
 
 const Stack = createNativeStackNavigator();
@@ -56,8 +60,6 @@ function MainNavigator() {
         return <ChallengesScreen />;
       case 'shop':
         return <ShopScreen />;
-      case 'notifications':
-        return <NotificationsScreen />;
       case 'profile':
         return <ProfileScreen />;
       default:
@@ -93,6 +95,47 @@ function MainNavigator() {
       <Stack.Screen 
         name="shop" 
         component={ShopScreen}
+        options={{
+          animation: 'slide_from_right'
+        }}
+      />
+      
+      <Stack.Screen 
+        name="Payment" 
+        component={PaymentScreen}
+        options={{
+          animation: 'slide_from_bottom',
+          presentation: 'modal'
+        }}
+      />
+      
+      <Stack.Screen 
+        name="Terms" 
+        component={TermsScreen}
+        options={{
+          animation: 'slide_from_right'
+        }}
+      />
+      
+      <Stack.Screen 
+        name="Privacy" 
+        component={PrivacyScreen}
+        options={{
+          animation: 'slide_from_right'
+        }}
+      />
+      
+      <Stack.Screen 
+        name="PurchaseHistory" 
+        component={PurchaseHistoryScreen}
+        options={{
+          animation: 'slide_from_right'
+        }}
+      />
+      
+      <Stack.Screen 
+        name="NotificationSettings" 
+        component={NotificationsScreen}
         options={{
           animation: 'slide_from_right'
         }}

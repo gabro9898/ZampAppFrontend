@@ -1,4 +1,4 @@
-// src/utils/challengeHelpers.js - Versione Completa con Pacchetti e Shop
+// src/utils/challengeHelpers.js - Versione Completa con Fix Shop
 
 export const getTypeColor = (challenge) => {
   const gameMode = challenge.gameMode?.toLowerCase();
@@ -58,10 +58,46 @@ export const getTypeLabel = (challenge) => {
 };
 
 export const formatTimeLeft = (endDate) => {
-  const now = new Date();
-  const end = new Date(endDate);
+  if (!endDate) {
+    return 'Data non disponibile';
+  }
   
-  if (isNaN(end.getTime())) {
+  const now = new Date();
+  let end;
+  
+  try {
+    // Prova diversi formati di data
+    if (endDate instanceof Date) {
+      end = endDate;
+    } else if (typeof endDate === 'string') {
+      // Prova prima il formato ISO standard
+      end = new Date(endDate);
+      
+      // Se fallisce, prova con replace di spazi
+      if (isNaN(end.getTime())) {
+        end = new Date(endDate.replace(' ', 'T'));
+      }
+      
+      // Se ancora fallisce, prova altri formati comuni
+      if (isNaN(end.getTime())) {
+        // Formato italiano DD/MM/YYYY
+        const parts = endDate.split('/');
+        if (parts.length === 3) {
+          end = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`);
+        }
+      }
+    } else if (typeof endDate === 'number') {
+      // Timestamp
+      end = new Date(endDate);
+    }
+    
+    // Verifica finale
+    if (!end || isNaN(end.getTime())) {
+      console.log('formatTimeLeft: data non valida:', endDate);
+      return 'Data non valida';
+    }
+  } catch (error) {
+    console.error('formatTimeLeft error:', error);
     return 'Data non valida';
   }
   
@@ -74,14 +110,44 @@ export const formatTimeLeft = (endDate) => {
   const days = Math.floor(diff / (1000 * 60 * 60 * 24));
   const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
   
+  if (days > 30) return `${Math.floor(days / 30)} mesi`;
+  if (days > 7) return `${Math.floor(days / 7)} settimane`;
   if (days > 0) return `${days} giorni`;
   if (hours > 0) return `${hours} ore`;
   return 'Poche ore';
 };
 
 export const formatPrize = (prize) => {
+  // Se è un numero, formattalo come euro
   if (typeof prize === 'number') return `€${prize}`;
-  return String(prize || 'Da definire');
+  
+  // Se è un oggetto con proprietà amount o value
+  if (prize && typeof prize === 'object') {
+    if (prize.amount) return `€${prize.amount}`;
+    if (prize.value) return `€${prize.value}`;
+    if (prize.euro) return `€${prize.euro}`;
+    
+    // Se ha altre proprietà prova a estrarre un valore numerico
+    const possibleKeys = ['prize', 'total', 'money', 'reward'];
+    for (const key of possibleKeys) {
+      if (prize[key] && typeof prize[key] === 'number') {
+        return `€${prize[key]}`;
+      }
+    }
+  }
+  
+  // Se è una stringa che contiene già il simbolo €
+  if (typeof prize === 'string' && prize.includes('€')) {
+    return prize;
+  }
+  
+  // Se è una stringa numerica
+  if (typeof prize === 'string' && !isNaN(parseFloat(prize))) {
+    return `€${parseFloat(prize)}`;
+  }
+  
+  // Default
+  return prize ? String(prize) : 'Da definire';
 };
 
 export const formatPrice = (price) => {
